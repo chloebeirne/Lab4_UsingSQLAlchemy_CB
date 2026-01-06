@@ -27,6 +27,20 @@ class UserRead(BaseModel):
     email: EmailStr 
     age: AgeInt 
     student_id: StudentId 
+
+class UserPut(BaseModel):
+    # PUT = full replace: all fields required
+    name: NameStr
+    email: EmailStr
+    age: AgeInt
+    student_id: StudentId
+
+class UserPatch(BaseModel):
+    # PATCH = partial update: all fields optional
+    name: Optional[NameStr] = None
+    email: Optional[EmailStr] = None
+    age: Optional[AgeInt] = None
+    student_id: Optional[StudentId] = None
  
 # Optionally return users with their projects 
 class ProjectRead(BaseModel): 
@@ -53,6 +67,18 @@ class ProjectCreateForUser(BaseModel):
  
 class ProjectReadWithOwner(ProjectRead): 
     owner: Optional["UserRead"] = None  # use selectinload(ProjectDB.owner) when querying 
+
+class ProjectPut(BaseModel):
+    # PUT = full replace: required fields
+    name: ProjectNameStr
+    description: Optional[DescStr] = None
+    owner_id: int
+
+class ProjectPatch(BaseModel):
+    # PATCH = partial update: optional
+    name: Optional[ProjectNameStr] = None
+    description: Optional[DescStr] = None
+    owner_id: Optional[int] = None
  
 # ---------- Courses ---------- 
 class CourseCreate(BaseModel): 

@@ -5,12 +5,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload 
 from .database import engine, SessionLocal 
 from .models import Base, UserDB, CourseDB, ProjectDB 
-from .schemas import ( 
-    UserCreate, UserRead, 
-    CourseCreate, CourseRead, 
-    ProjectCreate, ProjectRead, 
-    ProjectReadWithOwner, ProjectCreateForUser 
-) 
+from .schemas import (
+    UserCreate, UserRead,
+    CourseCreate, CourseRead,
+    ProjectCreate, ProjectRead,
+    ProjectReadWithOwner, ProjectCreateForUser,
+    UserPut, UserPatch,
+    ProjectPut, ProjectPatch
+)
  
 app = FastAPI() 
 Base.metadata.create_all(bind=engine) 
@@ -144,3 +146,75 @@ def delete_user(user_id: int, db: Session = Depends(get_db)) -> Response:
     db.delete(user)          # <-- triggers cascade="all, delete-orphan" on projects 
     db.commit() 
     return Response(status_code=status.HTTP_204_NO_CONTENT) 
+
+@app.put("/api/users/{user_id}", response_model=UserRead)
+def put_user(user_id: int, user: UserPut, db: Session = Depends(get_db)):
+    db_user = db.get(UserDB, user_id)
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    db_user.name = user.name
+    db_user.email = user.email
+    db_user.age = user.age
+    db_user.student_id = user.student_id
+
+    commit_or_rollback(db, "User update failed")
+    db.refresh(db_user)
+    return db_user
+
+
+@app.patch("/api/users/{user_id}", response_model=UserRead)
+def patch_user(user_id: int, user: UserPatch, db: Session = Depends(get_db)):
+    db_user = db.get(UserDB, user_id)
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    data = user.model_dump(exclude_unset=True)
+    for k, v in data.items():
+        setattr(db_user, k, v)
+
+    commit_or_rollback(db, "User update failed")
+    db.refresh(db_user)
+    return db_user
+
+
+@app.put("/api/projects/{project_id}", response_model=ProjectRead)
+def put_project(project_id: int, project: ProjectPut, db: Session = Depends(get_db)):
+    db_proj = db.get(ProjectDB, project_id)
+    if not db_proj:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # validate owner exists
+    owner = db.get(UserDB, project.owner_id)
+    if not owner:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    db_proj.name = project.name
+    db_proj.description = project.description
+    db_proj.owner_id = project.owner_id
+
+    commit_or_rollback(db, "Project update failed")
+    db.refresh(db_proj)
+    return db_proj
+
+
+@app.patch("/api/projects/{project_id}", response_model=ProjectRead)
+def patch_project(project_id: int, project: ProjectPatch, db: Session = Depends(get_db)):
+    db_proj = db.get(ProjectDB, project_id)
+    if not db_proj:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    data = project.model_dump(exclude_unset=True)
+
+    # if owner_id is being updated, validate it
+    if "owner_id" in data:
+        owner = db.get(UserDB, data["owner_id"])
+        if not owner:
+            raise HTTPException(status_code=404, detail="User not found")
+
+    for k, v in data.items():
+        setattr(db_proj, k, v)
+
+    commit_or_rollback(db, "Project update failed")
+    db.refresh(db_proj)
+    return db_proj
