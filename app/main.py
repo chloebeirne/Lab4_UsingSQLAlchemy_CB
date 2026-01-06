@@ -14,6 +14,7 @@ from fastapi import FastAPI, HTTPException, status
 from .schemas import User
 
 app = FastAPI()
+
 users: list[User] = []
 
 @app.get("/api/users")
@@ -33,4 +34,6 @@ def add_user(user: User):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="user_id already exists")
     users.append(user)
     return user
+
+
 
